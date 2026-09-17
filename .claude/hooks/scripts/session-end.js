@@ -13,31 +13,35 @@ const {
   getDateTimeString,
   shortId,
   ensureDir,
-  writeFile,
   appendFile,
+  readHookInput,
+  pruneFiles,
   log,
   isHookDisabled
 } = require('./utils');
 
 async function main() {
   if (isHookDisabled('session-end')) process.exit(0);
+  const input = readHookInput();
   const sessionsDir = getSessionsDir();
   ensureDir(sessionsDir);
 
-  // Create session file with date and short ID
-  const dateStr = getDateString();
-  const id = shortId();
-  const sessionFile = path.join(sessionsDir, `${dateStr}-${id}-session.tmp`);
+  // One file per session, keyed by Claude's session_id (shared with pre-compact.js).
+  // Hooks run from the home directory, so take cwd from the payload, not process.cwd().
+  const id = (input.session_id || shortId()).slice(0, 8);
+  const cwd = input.cwd || process.cwd();
+  const sessionFile = path.join(sessionsDir, `${getDateString()}-${id}-session.tmp`);
 
-  // Log session end
   const timestamp = getDateTimeString();
-  const logEntry = `Session ended at ${timestamp}\nWorking directory: ${process.cwd()}\n`;
-
-  writeFile(sessionFile, logEntry);
+  const reason = input.reason ? ` (${input.reason})` : '';
+  appendFile(sessionFile, `Session ended at ${timestamp}${reason}\nWorking directory: ${cwd}\n`);
 
   // Also append to session log
   const sessionLog = path.join(sessionsDir, 'session-log.txt');
-  appendFile(sessionLog, `[${timestamp}] Session ended - ${process.cwd()}\n`);
+  appendFile(sessionLog, `[${timestamp}] Session ended - ${cwd}\n`);
+
+  // Stop session files accumulating forever
+  pruneFiles(sessionsDir, '*-session.tmp', 50);
 
   log('[SessionEnd] Session state persisted');
   process.exit(0);

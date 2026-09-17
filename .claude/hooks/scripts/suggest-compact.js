@@ -13,12 +13,18 @@
  */
 
 const path = require('path');
-const { getTempDir, readFile, writeFile, log, isHookDisabled } = require('./utils');
+const { getTempDir, readFile, writeFile, readHookInput, isHookDisabled } = require('./utils');
+
+// stderr from an exit-0 hook is never shown, so emit a systemMessage on stdout instead
+function suggest(message) {
+  process.stdout.write(JSON.stringify({ systemMessage: message }) + '\n');
+}
 
 async function main() {
   if (isHookDisabled('suggest-compact')) process.exit(0);
-  // Use session-specific counter based on session ID or parent PID
-  const sessionId = process.env.CLAUDE_SESSION_ID || process.ppid || 'default';
+  // Session-specific counter keyed by the session_id Claude passes on stdin
+  const input = readHookInput();
+  const sessionId = input.session_id || 'default';
   const counterFile = path.join(getTempDir(), `claude-tool-count-${sessionId}`);
   const threshold = parseInt(process.env.COMPACT_THRESHOLD || '50', 10);
 
@@ -35,13 +41,13 @@ async function main() {
 
   // Suggest compact at threshold
   if (count === threshold) {
-    log(`[StrategicCompact] ${threshold} tool calls reached - consider /compact if transitioning phases`);
-    log('[StrategicCompact] Good times to compact: after exploration, after debugging, before new task');
+    suggest(`[StrategicCompact] ${threshold} tool calls reached - consider /compact if transitioning phases. ` +
+      'Good times to compact: after exploration, after debugging, before new task');
   }
 
   // Remind at regular intervals after threshold
   if (count > threshold && count % 25 === 0) {
-    log(`[StrategicCompact] ${count} tool calls - good checkpoint for /compact if context is stale`);
+    suggest(`[StrategicCompact] ${count} tool calls - good checkpoint for /compact if context is stale`);
   }
 
   process.exit(0);

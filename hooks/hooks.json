@@ -1,5 +1,5 @@
 {
-  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "description": "r-skills hooks: git push warning, doc-file warning, compaction suggestions, session state",
   "hooks": {
     "PreToolUse": [
       {
@@ -9,8 +9,7 @@
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/scripts/git-push-warn.js\""
           }
-        ],
-        "description": "Warn before git push to prevent accidental pushes"
+        ]
       },
       {
         "matcher": "Write",
@@ -19,8 +18,7 @@
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/scripts/doc-blocker.js\""
           }
-        ],
-        "description": "Warn about creating random .md files - keeps docs consolidated"
+        ]
       },
       {
         "matcher": "Edit|Write",
@@ -29,8 +27,7 @@
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/scripts/suggest-compact.js\""
           }
-        ],
-        "description": "Suggest manual compaction at logical intervals"
+        ]
       }
     ],
     "PreCompact": [
@@ -41,8 +38,7 @@
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/scripts/pre-compact.js\""
           }
-        ],
-        "description": "Save state before context compaction"
+        ]
       }
     ],
     "SessionStart": [
@@ -53,8 +49,7 @@
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/scripts/session-start.js\""
           }
-        ],
-        "description": "Load previous context on new session"
+        ]
       }
     ],
     "SessionEnd": [
@@ -65,8 +60,7 @@
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/scripts/session-end.js\""
           }
-        ],
-        "description": "Persist session state on end"
+        ]
       }
     ]
   }

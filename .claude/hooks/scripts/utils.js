@@ -113,7 +113,8 @@ function findFiles(dir, pattern, options = {}) {
   }
 
   const files = fs.readdirSync(dir);
-  const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
+  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp('^' + escaped.replace(/\*/g, '.*') + '$');
   const maxAge = options.maxAge ? options.maxAge * 24 * 60 * 60 * 1000 : Infinity;
   const now = Date.now();
 
@@ -131,6 +132,31 @@ function findFiles(dir, pattern, options = {}) {
     })
     .filter(f => f.age <= maxAge)
     .sort((a, b) => b.mtime - a.mtime); // Most recent first
+}
+
+/**
+ * Read the hook's JSON payload from stdin (session_id, cwd, hook_event_name, ...)
+ * Returns {} if stdin is empty or not valid JSON.
+ */
+function readHookInput() {
+  try {
+    return JSON.parse(fs.readFileSync(0, 'utf8'));
+  } catch (e) {
+    return {};
+  }
+}
+
+/**
+ * Keep only the most recent `keep` files matching a pattern, deleting older ones
+ */
+function pruneFiles(dir, pattern, keep) {
+  for (const f of findFiles(dir, pattern).slice(keep)) {
+    try {
+      fs.unlinkSync(f.path);
+    } catch (e) {
+      // Ignore - file may already be gone
+    }
+  }
 }
 
 /**
@@ -201,6 +227,8 @@ module.exports = {
   getTimeString,
   shortId,
   findFiles,
+  readHookInput,
+  pruneFiles,
   log,
   isHookDisabled
 };

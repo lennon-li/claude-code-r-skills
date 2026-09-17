@@ -11,6 +11,7 @@ const {
   getLearnedSkillsDir,
   findFiles,
   ensureDir,
+  readHookInput,
   log,
   isHookDisabled
 } = require('./utils');
@@ -40,8 +41,8 @@ async function main() {
     log(`[SessionStart] ${learnedSkills.length} learned skill(s) available in ${learnedDir}`);
   }
 
-  // Report working directory context
-  const cwd = process.cwd();
+  // Report working directory context (hooks run from $HOME, so use the payload's cwd)
+  const cwd = readHookInput().cwd || process.cwd();
   log(`[SessionStart] Working directory: ${cwd}`);
 
   process.exit(0);
