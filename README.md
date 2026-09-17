@@ -1,6 +1,6 @@
 # Claude Code R Skills
 
-*Version 1.2.4 | Last updated: 2026-04-05*
+*Version 1.2.5 | Last updated: 2026-09-17*
 
 A curated collection of Claude Code configurations for modern R use. These skills, rules, commands, and agents help Claude Code understand R best practices and generate idiomatic, high-quality R code. Additionally the rules and commands help with efficient token usage and enforce constraints, and agents can perform specific tasks. Obviously you can fork and adapt any of these to your case-use.
 
@@ -145,7 +145,7 @@ yes  # or "proceed" to start implementation
 
 **When to use:** Hooks run automatically in response to events - you don't invoke them directly. They're useful for context management, state persistence, and workflow optimisations.
 
-**How they work:** Hooks are configured in `hooks/hooks.json` (for plugin users) and `.claude/settings.json` (for repo development). Matchers use simple tool names (`"Bash"`, `"Write"`, `"Edit|Write"`, `"*"`). Script-based hooks reference files via `${CLAUDE_PLUGIN_ROOT}/.claude/hooks/scripts/`; simple hooks use inline `node -e` commands.
+**How they work:** Hooks are configured only in `hooks/hooks.json`, which ships with the plugin. Matchers use simple tool names (`"Bash"`, `"Write"`, `"Edit|Write"`, `"*"`). Every hook is a script referenced by absolute path via `${CLAUDE_PLUGIN_ROOT}/.claude/hooks/scripts/`. Don't add hooks to `.claude/settings.json` with relative paths: Claude Code runs hook commands from your home directory, not the project root, so relative paths fail.
 
 **How to use:**
 
@@ -245,9 +245,9 @@ claude-research → /plan → claude-dev → /tdd → implement → /verify → 
 | Hook | Trigger | Description |
 |---------------------|------------------------|--------------------------------|
 | **suggest-compact** | PreToolUse (Edit/Write) | Suggests `/compact` after 50 tool calls, then every 25 |
-| **pre-compact** | PreCompact | Saves session state before context compaction |
-| **session-start** | SessionStart | Reports available session history and learned skills |
-| **session-end** | SessionEnd | Persists session state for continuity |
+| **pre-compact** | PreCompact | Logs the compaction and notes it in the current session's file |
+| **session-start** | SessionStart | Reports recent session history (last 7 days) and learned skills |
+| **session-end** | SessionEnd | Writes one file per session to `~/.claude/sessions/`, keeping the latest 50 |
 | **doc-blocker** | PreToolUse (Write .md) | Warns about creating random .md files |
 | **git-push-warn** | PreToolUse (Bash) | Warns before any `git push` to prevent accidental pushes |
 
@@ -257,6 +257,20 @@ These hooks help optimise context window usage and workflow safety by:
 -   Preserving session state across compaction events
 -   Consolidating documentation to reduce context bloat
 -   Requiring confirmation before irreversible git operations
+
+`doc-blocker` and `git-push-warn` only warn: the tool call still goes ahead.
+
+#### Disabling hooks
+
+Each hook checks these in order and exits quietly if it is disabled:
+
+| Method | Scope | Example |
+|--------|-------|---------|
+| `CLAUDE_DISABLE_ALL_HOOKS=1` | Every hook, this process | `CLAUDE_DISABLE_ALL_HOOKS=1 claude` |
+| `CLAUDE_DISABLE_HOOKS` | Named hooks, this process | `CLAUDE_DISABLE_HOOKS=doc-blocker,git-push-warn claude` |
+| `.claude/hooks/state.json` | Named hooks, persistent | `{ "disabled": ["suggest-compact"] }` |
+
+`state.json` is read from next to the hook scripts, so for plugin installs edit the copy in the plugin's install directory, not your project. Set `COMPACT_THRESHOLD` to change how many tool calls pass before `suggest-compact` fires (default 50).
 
 ### Contexts
 
@@ -375,9 +389,10 @@ claude-code-r-skills/
 │   └── marketplace.json             # Marketplace catalog
 ├── .claude/
 │   ├── CLAUDE.md                    # Project instructions
-│   ├── settings.json                # Project-level hooks (for repo dev)
+│   ├── settings.json                # Schema only; hooks live in hooks/hooks.json
 │   ├── settings.local.json          # Local permissions (gitignored)
 │   ├── hooks/
+│   │   ├── state.json               # Persistent per-hook disable list
 │   │   └── scripts/
 │   │       ├── utils.js             # Shared utilities
 │   │       ├── suggest-compact.js   # Strategic compaction
@@ -496,7 +511,7 @@ Switch to Opus only when you need deep architectural reasoning:
 
 ### Strategic Compaction
 
-The `suggest-compact` hook (included in this plugin) suggests `/compact` at logical breakpoints instead of relying on auto-compaction at 95% context.
+The `suggest-compact` hook (included in this plugin) suggests `/compact` at logical breakpoints instead of relying on auto-compaction at 95% context. It counts `Edit`/`Write` calls per session and fires at 50 (or `COMPACT_THRESHOLD`), then every 25.
 
 **When to compact:**
 - After research/exploration, before implementation
